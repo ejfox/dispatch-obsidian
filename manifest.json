@@ -1,0 +1,10 @@
+{
+	"id": "dispatch-companion",
+	"name": "Dispatch Companion",
+	"version": "0.1.0",
+	"minAppVersion": "1.0.0",
+	"description": "Obsidian-side companion for Dispatch. Shows publish status, frontmatter helpers, quick-create blog posts.",
+	"author": "EJ Fox",
+	"authorUrl": "https://ejfox.com",
+	"isDesktopOnly": true
+}
