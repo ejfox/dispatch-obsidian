@@ -1,0 +1,394 @@
+/* ── Dispatch Companion – styles.css ─────────────────────────────── */
+
+/* ── Status Bar ──────────────────────────────────────────────────── */
+
+.dispatch-status-bar {
+	cursor: pointer;
+	padding: 0 8px;
+	border-radius: 4px;
+	transition: background-color 150ms ease;
+}
+
+.dispatch-status-bar:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+/* ── Dispatch Panel Modal ────────────────────────────────────────── */
+
+.dispatch-modal {
+	max-width: 560px;
+}
+
+.dispatch-modal h2 {
+	margin: 0 0 16px 0;
+	font-size: 1.4em;
+	font-weight: 600;
+	color: var(--text-normal);
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding-bottom: 12px;
+}
+
+.dispatch-panel-section {
+	margin-bottom: 20px;
+}
+
+.dispatch-panel-section h3 {
+	margin: 0 0 10px 0;
+	font-size: 0.85em;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-muted);
+}
+
+/* ── Stats Grid ──────────────────────────────────────────────────── */
+
+.dispatch-stats-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.dispatch-stat-card {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 12px;
+	text-align: center;
+}
+
+.dispatch-stat-value {
+	font-size: 1.8em;
+	font-weight: 700;
+	line-height: 1.2;
+	color: var(--text-normal);
+	font-variant-numeric: tabular-nums;
+}
+
+.dispatch-stat-label {
+	font-size: 0.75em;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-muted);
+	margin-top: 4px;
+}
+
+/* ── Sync Indicator ──────────────────────────────────────────────── */
+
+.dispatch-sync-info {
+	margin-top: 8px;
+	font-size: 0.8em;
+}
+
+.dispatch-sync-fresh {
+	color: var(--text-success, #4ade80);
+}
+
+.dispatch-sync-stale {
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+/* ── Daily Goal Progress ─────────────────────────────────────────── */
+
+.dispatch-goal-container {
+	margin: 8px 0;
+}
+
+.dispatch-goal-bar {
+	height: 8px;
+	background: var(--background-modifier-border);
+	border-radius: 4px;
+	overflow: hidden;
+	margin-bottom: 6px;
+}
+
+.dispatch-goal-fill {
+	height: 100%;
+	background: var(--interactive-accent);
+	border-radius: 4px;
+	transition: width 300ms ease;
+	min-width: 2px;
+}
+
+.dispatch-goal-fill.dispatch-goal-complete {
+	background: var(--text-success, #4ade80);
+}
+
+.dispatch-goal-text {
+	font-size: 0.8em;
+	color: var(--text-muted);
+	text-align: center;
+}
+
+/* ── Warning List ────────────────────────────────────────────────── */
+
+.dispatch-warning-list {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.dispatch-warning-list > li {
+	padding: 8px 10px;
+	margin-bottom: 6px;
+	background: var(--background-secondary);
+	border-left: 3px solid var(--text-warning, #f59e0b);
+	border-radius: 0 4px 4px 0;
+}
+
+.dispatch-warning-list > li > strong {
+	display: block;
+	margin-bottom: 4px;
+	color: var(--text-normal);
+}
+
+.dispatch-warning-list ul {
+	list-style: disc;
+	padding-left: 18px;
+	margin: 4px 0 0 0;
+}
+
+.dispatch-warning-item {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	margin-bottom: 2px;
+}
+
+/* ── Ready to Publish List ───────────────────────────────────────── */
+
+.dispatch-ready-list {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.dispatch-ready-list > li {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 8px;
+	margin-bottom: 4px;
+	border-radius: 4px;
+	background: var(--background-secondary);
+}
+
+.dispatch-ready-note {
+	flex: 1;
+	font-size: 0.8em;
+	color: var(--text-muted);
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dispatch-unmark-btn {
+	flex-shrink: 0;
+	width: 22px;
+	height: 22px;
+	border: none;
+	background: none;
+	color: var(--text-muted);
+	font-size: 1.1em;
+	cursor: pointer;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	line-height: 1;
+}
+
+.dispatch-unmark-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-error, #ef4444);
+}
+
+/* ── File Links ──────────────────────────────────────────────────── */
+
+.dispatch-file-link {
+	color: var(--text-accent);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.dispatch-file-link:hover {
+	text-decoration: underline;
+}
+
+/* ── Draft List ──────────────────────────────────────────────────── */
+
+.dispatch-draft-list {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.dispatch-draft-list > li {
+	padding: 5px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	font-size: 0.9em;
+}
+
+.dispatch-draft-list > li:last-child {
+	border-bottom: none;
+}
+
+.dispatch-ready-badge {
+	font-size: 0.75em;
+	font-weight: 600;
+	color: var(--text-success, #4ade80);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.dispatch-muted {
+	color: var(--text-muted);
+	font-size: 0.85em;
+}
+
+/* ── New Blog Post Modal ─────────────────────────────────────────── */
+
+.dispatch-new-post {
+	max-width: 480px;
+}
+
+.dispatch-new-post h2 {
+	margin: 0 0 16px 0;
+	font-size: 1.3em;
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.dispatch-form-group {
+	margin-bottom: 14px;
+}
+
+.dispatch-form-group > label {
+	display: block;
+	font-size: 0.85em;
+	font-weight: 600;
+	color: var(--text-normal);
+	margin-bottom: 4px;
+}
+
+/* ── Inputs ──────────────────────────────────────────────────────── */
+
+.dispatch-input {
+	width: 100%;
+	padding: 8px 10px;
+	font-size: 0.95em;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-family: inherit;
+	box-sizing: border-box;
+}
+
+.dispatch-input:focus {
+	border-color: var(--interactive-accent);
+	outline: none;
+	box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb, 99, 102, 241), 0.2);
+}
+
+.dispatch-input::placeholder {
+	color: var(--text-faint);
+}
+
+.dispatch-slug-input {
+	font-family: var(--font-monospace);
+	font-size: 0.88em;
+}
+
+.dispatch-slug-preview {
+	margin-top: 4px;
+	font-size: 0.75em;
+	color: var(--text-faint);
+	font-family: var(--font-monospace);
+}
+
+/* ── Radio Group ─────────────────────────────────────────────────── */
+
+.dispatch-radio-group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.dispatch-radio-label {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 8px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	cursor: pointer;
+	transition: border-color 100ms ease, background-color 100ms ease;
+}
+
+.dispatch-radio-label:hover {
+	background: var(--background-secondary);
+}
+
+.dispatch-radio-label input[type="radio"] {
+	margin-top: 3px;
+	flex-shrink: 0;
+}
+
+.dispatch-radio-text {
+	display: block;
+	line-height: 1.4;
+}
+
+.dispatch-radio-text strong {
+	color: var(--text-normal);
+}
+
+.dispatch-radio-desc {
+	color: var(--text-muted);
+	font-size: 0.85em;
+}
+
+/* ── Form Actions ────────────────────────────────────────────────── */
+
+.dispatch-form-actions {
+	margin-top: 18px;
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.dispatch-btn-primary {
+	padding: 8px 20px;
+	font-size: 0.9em;
+	font-weight: 600;
+	color: var(--text-on-accent);
+	background: var(--interactive-accent);
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: filter 100ms ease;
+}
+
+.dispatch-btn-primary:hover {
+	filter: brightness(1.1);
+}
+
+.dispatch-btn-primary:active {
+	filter: brightness(0.95);
+}
+
+/* ── Settings Tab Sections ───────────────────────────────────────── */
+
+.setting-item h3 {
+	margin-top: 24px;
+}
+
+/* ── Obsidian Notice overrides for multi-line warnings ────────────── */
+
+.notice-container .notice {
+	white-space: pre-wrap;
+}
