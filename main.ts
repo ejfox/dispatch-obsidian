@@ -1812,7 +1812,6 @@ class DispatchPanelModal extends Modal {
 				}
 			}
 		}
-	}
 
 		// ── Quick actions ───────────────────────────────────────
 		const actionsSection = contentEl.createDiv({ cls: "dispatch-panel-section" });
@@ -1830,7 +1829,6 @@ class DispatchPanelModal extends Modal {
 			this.close();
 			this.plugin.openRandomDraft();
 		});
-
 	}
 
 	createStatCard(parent: HTMLElement, value: string, label: string) {
