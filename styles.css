@@ -387,6 +387,106 @@
 	margin-top: 24px;
 }
 
+/* ── Streak Visualization ────────────────────────────────────────── */
+
+.dispatch-streak-container {
+	margin-top: 12px;
+}
+
+.dispatch-streak-line {
+	display: flex;
+	gap: 12px;
+	margin-bottom: 8px;
+	flex-wrap: wrap;
+}
+
+.dispatch-streak-badge {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-accent);
+}
+
+.dispatch-streak-graph {
+	display: flex;
+	gap: 3px;
+	margin: 8px 0 4px;
+}
+
+.dispatch-streak-cell {
+	width: 16px;
+	height: 16px;
+	border-radius: 3px;
+	display: inline-block;
+	transition: transform 0.15s ease;
+	cursor: default;
+}
+
+.dispatch-streak-cell:hover {
+	transform: scale(1.3);
+}
+
+.dispatch-streak-empty {
+	background: var(--background-modifier-border);
+	opacity: 0.4;
+}
+
+.dispatch-streak-wrote {
+	background: var(--interactive-accent);
+	opacity: 0.5;
+}
+
+.dispatch-streak-published {
+	background: var(--interactive-accent);
+	opacity: 1;
+	box-shadow: 0 0 4px var(--interactive-accent);
+}
+
+.dispatch-streak-label {
+	font-size: 10px;
+	color: var(--text-faint);
+	text-align: right;
+}
+
+/* ── Quick Actions Row ──────────────────────────────────────────── */
+
+.dispatch-actions-row {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.dispatch-action-btn {
+	padding: 6px 14px;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 12px;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.dispatch-action-btn:hover {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+	transform: translateY(-1px);
+	box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.dispatch-action-btn:active {
+	transform: translateY(0);
+}
+
+/* ── Stats Grid 4-column ────────────────────────────────────────── */
+
+.dispatch-stats-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+	gap: 8px;
+	margin-top: 8px;
+}
+
 /* ── Obsidian Notice overrides for multi-line warnings ────────────── */
 
 .notice-container .notice {

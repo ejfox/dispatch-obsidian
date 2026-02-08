@@ -29,6 +29,11 @@ interface DispatchSettings {
 	ribbonIcon: boolean;
 	notifyOnWarnings: boolean;
 	websiteBaseUrl: string;
+	// Joy features
+	enableStreaks: boolean;           // track writing/publish streaks
+	celebrateMilestones: boolean;    // notices at word count milestones
+	showOnThisDay: boolean;          // "on this day" past publishes
+	sessionWordCount: boolean;       // track words written this session
 }
 
 const DEFAULT_SETTINGS: DispatchSettings = {
@@ -45,6 +50,10 @@ const DEFAULT_SETTINGS: DispatchSettings = {
 	ribbonIcon: true,
 	notifyOnWarnings: true,
 	websiteBaseUrl: "https://ejfox.com/blog",
+	enableStreaks: true,
+	celebrateMilestones: true,
+	showOnThisDay: true,
+	sessionWordCount: true,
 };
 
 interface DispatchStatusFile {
@@ -62,6 +71,7 @@ interface DispatchStatusFile {
 
 interface DispatchStatus {
 	updated_at: string;
+	last_publish: string | null; // slug of most recently published file
 	files: DispatchStatusFile[];
 	stats: {
 		total: number;
@@ -88,6 +98,12 @@ export default class DispatchCompanion extends Plugin {
 	statusPollInterval: number | null = null;
 	dailyWordCountCache: number = 0;
 	dailyWordCountDate: string = "";
+
+	// Joy state
+	sessionStartWordCount: number = 0;
+	sessionWordsWritten: number = 0;
+	lastMilestoneCelebrated: number = 0;
+	streakData: { dates: string[]; publishDates: string[] } = { dates: [], publishDates: [] };
 
 	async onload() {
 		await this.loadSettings();
@@ -316,6 +332,60 @@ export default class DispatchCompanion extends Plugin {
 			},
 		});
 
+		// ── Joy features ────────────────────────────────────────
+
+		// Load streak data
+		if (this.settings.enableStreaks) {
+			await this.loadStreakData();
+			this.recordWritingDay();
+		}
+
+		// Session word counter: snapshot current total on load
+		if (this.settings.sessionWordCount) {
+			this.sessionStartWordCount = this.getTotalBlogWords();
+		}
+
+		// Word count milestone celebrations
+		if (this.settings.celebrateMilestones) {
+			this.registerEvent(
+				this.app.vault.on("modify", (file) => {
+					if (file instanceof TFile && this.isBlogFile(file)) {
+						this.checkSessionMilestones();
+					}
+				})
+			);
+		}
+
+		// "On this day" check
+		if (this.settings.showOnThisDay) {
+			// Delay so it doesn't fire during startup noise
+			window.setTimeout(() => this.checkOnThisDay(), 3000);
+		}
+
+		this.addCommand({
+			id: "show-writing-streak",
+			name: "Show writing streak",
+			callback: () => this.showStreakNotice(),
+		});
+
+		this.addCommand({
+			id: "on-this-day",
+			name: "On this day...",
+			callback: () => this.checkOnThisDay(),
+		});
+
+		this.addCommand({
+			id: "session-stats",
+			name: "Show session stats",
+			callback: () => this.showSessionStats(),
+		});
+
+		this.addCommand({
+			id: "random-draft",
+			name: "Open a random draft",
+			callback: () => this.openRandomDraft(),
+		});
+
 		// ── Settings tab ────────────────────────────────────────
 		this.addSettingTab(new DispatchSettingTab(this.app, this));
 	}
@@ -345,7 +415,18 @@ export default class DispatchCompanion extends Plugin {
 				this.app.vault.getAbstractFileByPath(statusPath);
 			if (file && file instanceof TFile) {
 				const content = await this.app.vault.read(file);
-				this.dispatchStatus = JSON.parse(content) as DispatchStatus;
+				const newStatus = JSON.parse(content) as DispatchStatus;
+
+				// Detect fresh publish and celebrate
+				if (
+					newStatus.last_publish &&
+					this.settings.enableStreaks &&
+					(!this.dispatchStatus || this.dispatchStatus.last_publish !== newStatus.last_publish)
+				) {
+					this.celebratePublish(newStatus.last_publish);
+				}
+
+				this.dispatchStatus = newStatus;
 			}
 		} catch {
 			// status.json may not exist yet, that's fine
@@ -457,7 +538,7 @@ export default class DispatchCompanion extends Plugin {
 		}
 
 		const todayWords = this.getDailyWordCount();
-		const prefix = this.isDispatchFresh() ? "\u26A1 " : "";
+		const prefix = this.isDispatchFresh() ? "\u25CF " : "";
 		let text = "";
 
 		switch (this.settings.statusBarFormat) {
@@ -677,6 +758,11 @@ export default class DispatchCompanion extends Plugin {
 		}
 
 		new Notice(`Created ${opts.slug}`);
+
+		// Record writing day for streak tracking
+		if (this.settings.enableStreaks) {
+			this.recordWritingDay();
+		}
 	}
 
 	// ── Frontmatter Helpers ─────────────────────────────────────────
@@ -837,6 +923,315 @@ export default class DispatchCompanion extends Plugin {
 
 		await this.saveDispatchQueue();
 		new Notice(`Unmarked: ${file.name}`);
+	}
+
+	// ── Joy: Streaks ───────────────────────────────────────────────
+
+	async loadStreakData() {
+		try {
+			const data = await this.loadData();
+			if (data?.streakData) {
+				this.streakData = data.streakData;
+			}
+		} catch {
+			// fresh start
+		}
+	}
+
+	async saveStreakData() {
+		const data = (await this.loadData()) || {};
+		data.streakData = this.streakData;
+		await this.saveData({ ...data, ...this.settings, streakData: this.streakData });
+	}
+
+	recordWritingDay() {
+		const today = moment().format("YYYY-MM-DD");
+		if (!this.streakData.dates.includes(today)) {
+			this.streakData.dates.push(today);
+			// Keep last 365 days
+			if (this.streakData.dates.length > 365) {
+				this.streakData.dates = this.streakData.dates.slice(-365);
+			}
+			this.saveStreakData();
+		}
+	}
+
+	recordPublishDay() {
+		const today = moment().format("YYYY-MM-DD");
+		if (!this.streakData.publishDates.includes(today)) {
+			this.streakData.publishDates.push(today);
+			if (this.streakData.publishDates.length > 365) {
+				this.streakData.publishDates = this.streakData.publishDates.slice(-365);
+			}
+			this.saveStreakData();
+		}
+	}
+
+	getWritingStreak(): number {
+		const dates = [...this.streakData.dates].sort().reverse();
+		if (dates.length === 0) return 0;
+
+		let streak = 0;
+		let expected = moment();
+
+		for (const dateStr of dates) {
+			const date = moment(dateStr, "YYYY-MM-DD");
+			if (date.isSame(expected, "day")) {
+				streak++;
+				expected = expected.subtract(1, "day");
+			} else if (date.isBefore(expected, "day")) {
+				break;
+			}
+		}
+		return streak;
+	}
+
+	getPublishStreak(): number {
+		const dates = [...this.streakData.publishDates].sort().reverse();
+		if (dates.length === 0) return 0;
+
+		// Publishing streak = consecutive days with publishes
+		// More lenient: consecutive weeks
+		let streak = 0;
+		let expected = moment().startOf("week");
+
+		const weekSet = new Set(dates.map(d => moment(d).startOf("week").format("YYYY-WW")));
+		let currentWeek = moment().startOf("week");
+
+		for (let i = 0; i < 52; i++) {
+			if (weekSet.has(currentWeek.format("YYYY-WW"))) {
+				streak++;
+				currentWeek = currentWeek.subtract(1, "week");
+			} else {
+				break;
+			}
+		}
+		return streak;
+	}
+
+	showStreakNotice() {
+		const writingStreak = this.getWritingStreak();
+		const publishStreak = this.getPublishStreak();
+		const totalDays = this.streakData.dates.length;
+		const totalPublishes = this.streakData.publishDates.length;
+
+		const lines: string[] = [];
+
+		if (writingStreak > 0) {
+			lines.push(`Writing streak: ${writingStreak} day${writingStreak === 1 ? "" : "s"}`);
+		} else {
+			lines.push("Start a writing streak today.");
+		}
+
+		if (publishStreak > 0) {
+			lines.push(`Publish streak: ${publishStreak} week${publishStreak === 1 ? "" : "s"}`);
+		}
+
+		lines.push(`${totalDays} writing days \u00B7 ${totalPublishes} publish days recorded`);
+
+		// Mini contribution graph (last 7 days)
+		const last7: string[] = [];
+		for (let i = 6; i >= 0; i--) {
+			const date = moment().subtract(i, "days").format("YYYY-MM-DD");
+			last7.push(this.streakData.dates.includes(date) ? "\u2588" : "\u2591");
+		}
+		lines.push(`Last 7 days: ${last7.join("")}`);
+
+		new Notice(lines.join("\n"), 10000);
+	}
+
+	// ── Joy: Session Word Counter ──────────────────────────────────
+
+	getTotalBlogWords(): number {
+		if (this.dispatchStatus) {
+			return this.dispatchStatus.stats.total_words;
+		}
+		// Fallback: rough count from file sizes
+		const files = this.app.vault
+			.getMarkdownFiles()
+			.filter((f) => f.path.startsWith(this.settings.blogFolder + "/"));
+		let total = 0;
+		for (const file of files) {
+			total += Math.round(file.stat.size / 5); // ~5 chars per word
+		}
+		return total;
+	}
+
+	checkSessionMilestones() {
+		if (!this.settings.celebrateMilestones) return;
+
+		const current = this.getTotalBlogWords();
+		this.sessionWordsWritten = Math.max(0, current - this.sessionStartWordCount);
+
+		const milestones = [100, 250, 500, 750, 1000, 1500, 2000, 3000, 5000];
+		for (const milestone of milestones) {
+			if (
+				this.sessionWordsWritten >= milestone &&
+				this.lastMilestoneCelebrated < milestone
+			) {
+				this.lastMilestoneCelebrated = milestone;
+				this.celebrateMilestone(milestone);
+				break;
+			}
+		}
+	}
+
+	celebrateMilestone(words: number) {
+		const celebrations: Record<number, string> = {
+			100: "100 words this session \u2014 warming up.",
+			250: "250 words \u2014 the ideas are flowing.",
+			500: "500 words. Half a thousand. Keep going.",
+			750: "750 words \u2014 you're in the zone.",
+			1000: "1,000 words this session. That's an essay.",
+			1500: "1,500 words \u2014 on fire.",
+			2000: "2,000 words. A serious writing session.",
+			3000: "3,000 words \u2014 prolific.",
+			5000: "5,000 words in one session. Legendary.",
+		};
+
+		const message = celebrations[words] || `${words} words this session!`;
+		new Notice(message, 6000);
+	}
+
+	showSessionStats() {
+		const current = this.getTotalBlogWords();
+		this.sessionWordsWritten = Math.max(0, current - this.sessionStartWordCount);
+
+		const lines: string[] = [
+			`Session: ${this.sessionWordsWritten.toLocaleString()} words written`,
+		];
+
+		if (this.settings.wordCountGoal > 0) {
+			const dailyWords = this.getDailyWordCount();
+			const pct = Math.round((dailyWords / this.settings.wordCountGoal) * 100);
+			lines.push(`Daily goal: ${pct}% (${dailyWords.toLocaleString()} / ${this.settings.wordCountGoal.toLocaleString()})`);
+		}
+
+		const streak = this.getWritingStreak();
+		if (streak > 0) {
+			lines.push(`Writing streak: ${streak} day${streak === 1 ? "" : "s"}`);
+		}
+
+		new Notice(lines.join("\n"), 8000);
+	}
+
+	// ── Joy: On This Day ───────────────────────────────────────────
+
+	checkOnThisDay() {
+		const today = moment();
+		const monthDay = today.format("MM-DD");
+
+		const blogFolder = this.settings.blogFolder;
+		const files = this.app.vault
+			.getMarkdownFiles()
+			.filter((f) => f.path.startsWith(blogFolder + "/"));
+
+		const matches: { file: TFile; year: string }[] = [];
+
+		for (const file of files) {
+			const cache = this.app.metadataCache.getFileCache(file);
+			const fm = cache?.frontmatter;
+			if (fm?.["date"] && fm?.["published_url"]) {
+				const dateStr = String(fm["date"]);
+				const pubMoment = moment(dateStr);
+				if (
+					pubMoment.isValid() &&
+					pubMoment.format("MM-DD") === monthDay &&
+					pubMoment.year() !== today.year()
+				) {
+					matches.push({
+						file,
+						year: pubMoment.format("YYYY"),
+					});
+				}
+			}
+		}
+
+		if (matches.length === 0) {
+			if (!this.settings.showOnThisDay) {
+				// Only show "nothing" if manually triggered
+				new Notice("No posts published on this day in previous years.");
+			}
+			return;
+		}
+
+		const lines = ["On this day\u2026"];
+		for (const m of matches.sort((a, b) => a.year.localeCompare(b.year))) {
+			const title = m.file.basename.replace(/-/g, " ");
+			lines.push(`  ${m.year}: ${title}`);
+		}
+
+		new Notice(lines.join("\n"), 12000);
+	}
+
+	// ── Joy: Random Draft ──────────────────────────────────────────
+
+	async openRandomDraft() {
+		const blogFolder = this.settings.blogFolder;
+		const drafts = this.app.vault
+			.getMarkdownFiles()
+			.filter((f) => {
+				if (!f.path.startsWith(blogFolder + "/")) return false;
+				const cache = this.app.metadataCache.getFileCache(f);
+				return !cache?.frontmatter?.["published_url"];
+			});
+
+		if (drafts.length === 0) {
+			new Notice("No drafts to choose from \u2014 everything's published!");
+			return;
+		}
+
+		const pick = drafts[Math.floor(Math.random() * drafts.length)];
+		await this.app.workspace.getLeaf(false).openFile(pick);
+
+		const title = pick.basename.replace(/-/g, " ");
+		const encouragements = [
+			`How about finishing "${title}"?`,
+			`"${title}" has been waiting for you.`,
+			`Maybe today's the day for "${title}".`,
+			`"${title}" \u2014 revisit this one?`,
+			`This draft could be today's essay: "${title}"`,
+		];
+		new Notice(
+			encouragements[Math.floor(Math.random() * encouragements.length)],
+			6000
+		);
+	}
+
+	// ── Joy: Publish Celebration ───────────────────────────────────
+
+	celebratePublish(slug: string) {
+		this.recordPublishDay();
+		const publishStreak = this.getPublishStreak();
+
+		const lines = [`Published: ${slug}`];
+
+		if (publishStreak > 1) {
+			lines.push(`Publishing streak: ${publishStreak} weeks in a row.`);
+		}
+
+		const totalPublishes = this.streakData.publishDates.length;
+		if (totalPublishes % 10 === 0 && totalPublishes > 0) {
+			lines.push(`That's publish #${totalPublishes}.`);
+		}
+
+		// Count remaining drafts for gentle pressure
+		const blogFolder = this.settings.blogFolder;
+		const remaining = this.app.vault
+			.getMarkdownFiles()
+			.filter((f) => {
+				if (!f.path.startsWith(blogFolder + "/")) return false;
+				const cache = this.app.metadataCache.getFileCache(f);
+				return !cache?.frontmatter?.["published_url"];
+			}).length;
+
+		if (remaining === 0) {
+			lines.push("Inbox zero \u2014 every draft is published.");
+		} else if (remaining <= 3) {
+			lines.push(`Almost there \u2014 only ${remaining} draft${remaining === 1 ? "" : "s"} left.`);
+		}
+
+		new Notice(lines.join("\n"), 8000);
 	}
 
 	// ── Dispatch Panel (Ribbon Modal) ───────────────────────────────
@@ -1166,6 +1561,54 @@ class DispatchPanelModal extends Modal {
 			"Total Words"
 		);
 
+		// Session words
+		if (this.plugin.settings.sessionWordCount) {
+			const sessionWords = Math.max(0, this.plugin.getTotalBlogWords() - this.plugin.sessionStartWordCount);
+			this.createStatCard(statsGrid, sessionWords.toLocaleString(), "Session");
+		}
+
+		// ── Streak section ──────────────────────────────────────
+		if (this.plugin.settings.enableStreaks) {
+			const streakContainer = statsSection.createDiv({ cls: "dispatch-streak-container" });
+
+			const writingStreak = this.plugin.getWritingStreak();
+			const publishStreak = this.plugin.getPublishStreak();
+
+			if (writingStreak > 0 || publishStreak > 0) {
+				const streakLine = streakContainer.createDiv({ cls: "dispatch-streak-line" });
+				if (writingStreak > 0) {
+					streakLine.createSpan({ text: `${writingStreak}-day writing streak`, cls: "dispatch-streak-badge" });
+				}
+				if (publishStreak > 0) {
+					streakLine.createSpan({ text: `${publishStreak}-week publish streak`, cls: "dispatch-streak-badge" });
+				}
+			}
+
+			// Mini contribution graph (last 14 days)
+			const graphRow = streakContainer.createDiv({ cls: "dispatch-streak-graph" });
+			for (let i = 13; i >= 0; i--) {
+				const date = moment().subtract(i, "days");
+				const dateStr = date.format("YYYY-MM-DD");
+				const wrote = this.plugin.streakData.dates.includes(dateStr);
+				const published = this.plugin.streakData.publishDates.includes(dateStr);
+
+				const cell = graphRow.createSpan({ cls: "dispatch-streak-cell" });
+				if (published) {
+					cell.addClass("dispatch-streak-published");
+					cell.setAttribute("aria-label", `${date.format("MMM D")}: published`);
+				} else if (wrote) {
+					cell.addClass("dispatch-streak-wrote");
+					cell.setAttribute("aria-label", `${date.format("MMM D")}: wrote`);
+				} else {
+					cell.addClass("dispatch-streak-empty");
+					cell.setAttribute("aria-label", `${date.format("MMM D")}: -`);
+				}
+			}
+
+			const graphLabel = streakContainer.createDiv({ cls: "dispatch-streak-label" });
+			graphLabel.setText("Last 14 days");
+		}
+
 		// Dispatch sync indicator
 		if (this.plugin.dispatchStatus) {
 			const syncInfo = statsSection.createDiv({
@@ -1177,7 +1620,7 @@ class DispatchPanelModal extends Modal {
 			).toLocaleString();
 			syncInfo.createEl("span", {
 				text: isFresh
-					? `\u26A1 Synced with Dispatch (${updatedAt})`
+					? `Synced with Dispatch (${updatedAt})`
 					: `Last scan: ${updatedAt} (stale)`,
 				cls: isFresh
 					? "dispatch-sync-fresh"
@@ -1369,6 +1812,25 @@ class DispatchPanelModal extends Modal {
 				}
 			}
 		}
+	}
+
+		// ── Quick actions ───────────────────────────────────────
+		const actionsSection = contentEl.createDiv({ cls: "dispatch-panel-section" });
+		actionsSection.createEl("h3", { text: "Quick Actions" });
+		const actionsRow = actionsSection.createDiv({ cls: "dispatch-actions-row" });
+
+		const newPostBtn = actionsRow.createEl("button", { text: "New Post", cls: "dispatch-action-btn" });
+		newPostBtn.addEventListener("click", () => {
+			this.close();
+			this.plugin.openNewBlogPostModal();
+		});
+
+		const randomBtn = actionsRow.createEl("button", { text: "Random Draft", cls: "dispatch-action-btn" });
+		randomBtn.addEventListener("click", () => {
+			this.close();
+			this.plugin.openRandomDraft();
+		});
+
 	}
 
 	createStatCard(parent: HTMLElement, value: string, label: string) {
@@ -1602,6 +2064,57 @@ class DispatchSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.notifyOnWarnings =
 							value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		// ── Joy & Motivation ────────────────────────────────────
+		containerEl.createEl("h3", { text: "Joy & Motivation" });
+
+		new Setting(containerEl)
+			.setName("Writing streaks")
+			.setDesc("Track consecutive days of writing and weeks of publishing")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enableStreaks)
+					.onChange(async (value) => {
+						this.plugin.settings.enableStreaks = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Milestone celebrations")
+			.setDesc("Celebrate when you hit word count milestones during a session (100, 500, 1000...)")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.celebrateMilestones)
+					.onChange(async (value) => {
+						this.plugin.settings.celebrateMilestones = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("On this day")
+			.setDesc("Show posts you published on today's date in previous years")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.showOnThisDay)
+					.onChange(async (value) => {
+						this.plugin.settings.showOnThisDay = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Session word counter")
+			.setDesc("Track words written in the current Obsidian session")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.sessionWordCount)
+					.onChange(async (value) => {
+						this.plugin.settings.sessionWordCount = value;
 						await this.plugin.saveSettings();
 					})
 			);
